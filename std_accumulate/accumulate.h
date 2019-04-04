@@ -9,19 +9,13 @@ namespace my_accumulate
     template<class InputIt, class T>
     T accumulate(InputIt first, InputIt last, T init)
     {
-        const unsigned int threads_counter = std::thread::hardware_concurrency() != 0 ? std::thread::hardware_concurrency() : 2;
         const unsigned int elements_counter = std::distance(first, last);
         if (!elements_counter) return init;
-
+        const unsigned int threads_counter = std::thread::hardware_concurrency() != 0 ? std::thread::hardware_concurrency() : 2;
+        const unsigned int numbersToAdd = floor(static_cast<double>(elements_counter) / static_cast<double>(threads_counter));
         std::vector<std::thread> threads;
         std::vector<T> sums;
-        unsigned int numbersToAdd = 0;
-    
-        if (elements_counter % threads_counter == 0)
-            numbersToAdd = elements_counter / threads_counter;
-        else
-            numbersToAdd = floor(static_cast<double>(elements_counter) / static_cast<double>(threads_counter));
-
+        
         auto rememberLast = last;
         last = first;
 
