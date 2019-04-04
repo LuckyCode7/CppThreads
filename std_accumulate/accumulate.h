@@ -1,58 +1,49 @@
 #pragma once
-#include <mutex>
-#include <math.h>
+#include <cmath>
 #include <thread>
 #include <vector>
+#include <numeric>
 
 namespace my_accumulate
 {
-    std::mutex m_;
-
     template<class InputIt, class T>
     T accumulate(InputIt first, InputIt last, T init)
     {
-        const unsigned int threads_counter = thread::hardware_concurrency() != 0 ? thread::hardware_concurrency() : 2;
+        const unsigned int threads_counter = std::thread::hardware_concurrency() != 0 ? std::thread::hardware_concurrency() : 2;
         const unsigned int elements_counter = std::distance(first, last);
-
         if (!elements_counter) return init;
 
-        bool hardWork = false; // last thread has to sum up more numbers then the rest of threads 
-        std::vector<thread> sums;
+        std::vector<std::thread> threads;
+        std::vector<T> sums;
         unsigned int numbersToAdd = 0;
-        unsigned int numbersToAddCounter = 0;
-
+    
         if (elements_counter % threads_counter == 0)
-        {
             numbersToAdd = elements_counter / threads_counter;
-        }
         else
-        {
             numbersToAdd = floor(static_cast<double>(elements_counter) / static_cast<double>(threads_counter));
-            hardWork = true;
-        }
+
+        auto rememberLast = last;
+        last = first;
 
         for (int i = 0; i < threads_counter; ++i)
         {
-            sums.emplace_back([&]
+            threads.emplace_back([&]
             {
-                for (; first != last; ++first)
-                {
-                    if ((numbersToAddCounter == numbersToAdd) && !(i = threads_counter - 1 && hardWork))
-                    {
-                        numbersToAddCounter = 0;
-                        break;
-                    }
-                    m_.lock();
-                    init = std::move(init) + *first;
-                    m_.unlock();
-                    numbersToAddCounter++;
-                }
+                if (i == threads_counter - 1)
+                    last = rememberLast;
+                else if(last < rememberLast)
+                    last += numbersToAdd;
+
+               T partialSum = std::accumulate(first, last, 0);
+               sums.emplace_back(partialSum);
+
+               first += numbersToAdd;
             });
         }
 
-        for (auto& x : sums)
+        for (auto& x : threads)
             x.join();
 
-        return init;
+        return std::accumulate(sums.begin(), sums.end(), init);
     }
 }
