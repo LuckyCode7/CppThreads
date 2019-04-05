@@ -14,25 +14,26 @@ namespace my_accumulate
         const unsigned int threads_counter = std::thread::hardware_concurrency() != 0 ? std::thread::hardware_concurrency() : 2;
         const unsigned int numbersToAdd = floor(static_cast<double>(elements_counter) / static_cast<double>(threads_counter));
         std::vector<std::thread> threads;
-        std::vector<T> sums;
+        std::vector<T> sums(threads_counter);
+    
         
         auto rememberLast = last;
         last = first;
 
         for (int i = 0; i < threads_counter; ++i)
         {
+            if (i == threads_counter - 1)
+                last = rememberLast;
+            else if (last < rememberLast)
+                last += numbersToAdd;
+
             threads.emplace_back([&]
             {
-                if (i == threads_counter - 1)
-                    last = rememberLast;
-                else if(last < rememberLast)
-                    last += numbersToAdd;
-
-               T partialSum = std::accumulate(first, last, 0);
-               sums.emplace_back(partialSum);
-
-               first += numbersToAdd;
+               const T partialSum = std::accumulate(first, last, 0);
+               sums[i] = partialSum;
             });
+
+            first += numbersToAdd;
         }
 
         for (auto& x : threads)
